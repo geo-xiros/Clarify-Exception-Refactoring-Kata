@@ -83,5 +83,20 @@ namespace codingdojo
 
             Assert.Equal("Missing Lookup Table", actual.Message);
         }
+
+        [Fact]
+        public void ShouldReturnMissingFormula()
+        {
+            var enricher = new MessageEnricher();
+
+            var worksheet = new SpreadsheetWorkbook();
+
+            var e = new SpreadsheetException("Missing Formula", new List<string>() { "C1", "C2", "C3" }, "token");
+
+            var actual = enricher.EnrichError(worksheet, e);
+
+            Assert.Equal($"Invalid expression found in tax formula [{worksheet.GetFormulaName()}]. Check for merged cells near {e.Cells}", actual.Message);
+        }
+        
     }
 }
