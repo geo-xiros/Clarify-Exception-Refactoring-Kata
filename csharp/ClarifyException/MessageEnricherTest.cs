@@ -1,5 +1,4 @@
-﻿using ClarifyException;
-using Moq;
+﻿using Moq;
 using System;
 using System.Collections.Generic;
 using Xunit;
@@ -58,7 +57,7 @@ namespace codingdojo
 
             var worksheet = new SpreadsheetWorkbook();
 
-            var e = new ExpressionParseException("Object reference not set to an instance of an object");
+            var e = new ExpressionParseException("ExpressionParseException error");
 
             var actual = enricher.EnrichError(worksheet, e);
 
