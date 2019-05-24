@@ -9,7 +9,6 @@ namespace codingdojo
         [Theory]
         [InlineData("No matches found")]
         [InlineData("Circular Reference xxx")]
-        [InlineData("Object reference not set to an instance of an object")]
         [InlineData("Missing Formula")]
         [InlineData("General Error")]
         public void SimpleExceptionShouldReturnMessage(string message)

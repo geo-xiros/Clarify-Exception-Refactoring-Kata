@@ -21,6 +21,7 @@ namespace codingdojo
                 return new ErrorResult(formulaName, error, spreadsheetWorkbook.GetPresentation());
             }
 
+
             if ("Object reference not set to an instance of an object".Equals(e.Message)
                 && StackTraceContains(e, "VLookup"))
                 return new ErrorResult(formulaName, "Missing Lookup Table", spreadsheetWorkbook.GetPresentation());
