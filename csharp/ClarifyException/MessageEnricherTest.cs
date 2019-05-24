@@ -1,4 +1,6 @@
-﻿using System;
+﻿using ClarifyException;
+using Moq;
+using System;
 using System.Collections.Generic;
 using Xunit;
 
@@ -61,6 +63,26 @@ namespace codingdojo
             var actual = enricher.EnrichError(worksheet, e);
 
             Assert.Equal("Invalid expression found in tax formula [" + worksheet.GetFormulaName() + "]. Check that separators and delimiters use the English locale.", actual.Message);
+        }
+        [Theory]
+        [InlineData("VLookup")]
+        [InlineData("error for\nVLookup")]
+        [InlineData("VLookup\nehere!!!")]
+        [InlineData("error for\nVLookup\nhere!!!")]
+        public void ShouldReturnMissingLookUpTable(string stack)
+        {
+            var enricher = new MessageEnricher();
+
+            var worksheet = new SpreadsheetWorkbook();
+
+            var mock = new Mock<Exception>();
+            mock.Setup(ex => ex.Message).Returns("Object reference not set to an instance of an object");
+            mock.Setup(ex => ex.StackTrace).Returns(stack);
+            var e = mock.Object;
+
+            var actual = enricher.EnrichError(worksheet, e);
+
+            Assert.Equal("Missing Lookup Table", actual.Message);
         }
     }
 }
