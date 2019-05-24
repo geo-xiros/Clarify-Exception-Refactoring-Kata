@@ -13,54 +13,49 @@ namespace codingdojo
             {
                 error = $"Invalid expression found in tax formula [{formulaName}]. Check that separators and delimiters use the English locale.";
             }
-            else if (e.Message.StartsWith("Circular Reference"))
+            else if (e.Message.StartsWith("Circular Reference") && e.GetType() == typeof(SpreadsheetException))
             {
-                error = parseCircularReferenceException(e, formulaName);
+                error = parseCircularReferenceException(e as SpreadsheetException, formulaName);
             }
-            else if ("Object reference not set to an instance of an object".Equals(e.Message)
-                && StackTraceContains(e, "VLookup"))
+            else if ("No matches found".Equals(e.Message) && e.GetType() == typeof(SpreadsheetException))
             {
-                error = "Missing Lookup Table";
+                error = parseNoMatchException(e as SpreadsheetException, formulaName);
             }
-            else if ("No matches found".Equals(e.Message))
+            else if ("Missing Formula".Equals(e.Message) && e.GetType() == typeof(SpreadsheetException))
             {
-                error = parseNoMatchException(e, formulaName);
+                error = parseMissingFormula(e as SpreadsheetException, formulaName);
             }
-
+            else if ("Object reference not set to an instance of an object".Equals(e.Message))
+            {
+                error = StackTraceContains(e, "VLookup");
+            }
+            
             return new ErrorResult(formulaName, error, spreadsheetWorkbook.GetPresentation());
         }
 
-        private bool StackTraceContains(Exception e, string message)
+        private string StackTraceContains(Exception e, string message)
         {
             foreach (var ste in e.StackTrace.Split('\n'))
             {
                 if (ste.Contains(message))
-                    return true;
+                    return "Missing Lookup Table";
             }
-            return false;
-        }
-
-        private string parseNoMatchException(Exception e, string formulaName)
-        {
-            if (e.GetType() == typeof(SpreadsheetException))
-            {
-                var we = (SpreadsheetException)e;
-                return "No match found for token [" + we.Token + "] related to formula '" + formulaName + "'.";
-            }
-
             return e.Message;
         }
 
-        private string parseCircularReferenceException(Exception e, string formulaName)
+        private string parseNoMatchException(SpreadsheetException e, string formulaName)
         {
-            if (e.GetType() == typeof(SpreadsheetException))
-            {
-                var we = (SpreadsheetException)e;
-                return "Circular Reference in spreadsheet related to formula '" + formulaName + "'. Cells: " +
-                       we.Cells;
-            }
+            return $"No match found for token [{e.Token}] related to formula '{formulaName}'.";
+        }
 
-            return e.Message;
+        private string parseCircularReferenceException(SpreadsheetException e, string formulaName)
+        {
+            return $"Circular Reference in spreadsheet related to formula '{formulaName}'. Cells: {e.Cells}";
+        }
+
+        private string parseMissingFormula(SpreadsheetException e, string formulaName)
+        {
+            return $"Invalid expression found in tax formula [{formulaName}]. Check for merged cells near {e.Cells}";
         }
     }
 }
