@@ -9,39 +9,25 @@ namespace codingdojo
             var formulaName = spreadsheetWorkbook.GetFormulaName();
             var error = e.Message;
 
-            if (e.GetType() == typeof(ExpressionParseException))
-            {
+            if (InvalidExpression(e))
                 error = $"Invalid expression found in tax formula [{formulaName}]. Check that separators and delimiters use the English locale.";
-            }
-            else if (e.Message.StartsWith("Circular Reference") && e.GetType() == typeof(SpreadsheetException))
-            {
+            else if (CircularReference(e))
                 error = parseCircularReferenceException(e as SpreadsheetException, formulaName);
-            }
-            else if ("No matches found".Equals(e.Message) && e.GetType() == typeof(SpreadsheetException))
-            {
+            else if (NoMatchesFound(e))
                 error = parseNoMatchException(e as SpreadsheetException, formulaName);
-            }
-            else if ("Missing Formula".Equals(e.Message) && e.GetType() == typeof(SpreadsheetException))
-            {
+            else if (MissingFormula(e))
                 error = parseMissingFormula(e as SpreadsheetException, formulaName);
-            }
-            else if ("Object reference not set to an instance of an object".Equals(e.Message))
-            {
-                error = StackTraceContains(e, "VLookup");
-            }
-            
+            else if (ObjectReferenceNotSet(e))
+                error = "Missing Lookup Table";
+
             return new ErrorResult(formulaName, error, spreadsheetWorkbook.GetPresentation());
         }
 
-        private string StackTraceContains(Exception e, string message)
-        {
-            foreach (var ste in e.StackTrace.Split('\n'))
-            {
-                if (ste.Contains(message))
-                    return "Missing Lookup Table";
-            }
-            return e.Message;
-        }
+        private static bool ObjectReferenceNotSet(Exception e) => "Object reference not set to an instance of an object".Equals(e.Message) && e.StackTrace.Contains("VLookup");
+        private static bool MissingFormula(Exception e) => "Missing Formula".Equals(e.Message) && e.GetType() == typeof(SpreadsheetException);
+        private static bool NoMatchesFound(Exception e) => "No matches found".Equals(e.Message) && e.GetType() == typeof(SpreadsheetException);
+        private bool InvalidExpression(Exception e) => e.GetType() == typeof(ExpressionParseException);
+        private bool CircularReference(Exception e) => e.Message.StartsWith("Circular Reference") && e.GetType() == typeof(SpreadsheetException);
 
         private string parseNoMatchException(SpreadsheetException e, string formulaName)
         {
