@@ -1,47 +1,81 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace codingdojo
 {
     public class MessageEnricher
     {
+        private List<IErrorValidator> _errorValidators;
+        public MessageEnricher()
+        {
+            _errorValidators = new List<IErrorValidator>()
+            {
+                new ObjectReferenceNotSetErrorValidator(),
+                new MissingFormulaErrorValidator(),
+                new NoMatchesFoundErrorValidator(),
+                new InvalidExpressionErrorValidator(),
+                new CircularReferenceErrorValidator()
+            };
+        }
+
         public ErrorResult EnrichError(SpreadsheetWorkbook spreadsheetWorkbook, Exception e)
         {
             var formulaName = spreadsheetWorkbook.GetFormulaName();
-            var error = e.Message;
 
-            if (InvalidExpression(e))
-                error = $"Invalid expression found in tax formula [{formulaName}]. Check that separators and delimiters use the English locale.";
-            else if (CircularReference(e))
-                error = parseCircularReferenceException(e as SpreadsheetException, formulaName);
-            else if (NoMatchesFound(e))
-                error = parseNoMatchException(e as SpreadsheetException, formulaName);
-            else if (MissingFormula(e))
-                error = parseMissingFormula(e as SpreadsheetException, formulaName);
-            else if (ObjectReferenceNotSet(e))
-                error = "Missing Lookup Table";
+            var error = _errorValidators
+                .FirstOrDefault(ev => ev.Validate(e))
+                ?.ErrorMessage(e, formulaName) 
+                ?? e.Message;
 
             return new ErrorResult(formulaName, error, spreadsheetWorkbook.GetPresentation());
+
         }
 
-        private static bool ObjectReferenceNotSet(Exception e) => "Object reference not set to an instance of an object".Equals(e.Message) && e.StackTrace.Contains("VLookup");
-        private static bool MissingFormula(Exception e) => "Missing Formula".Equals(e.Message) && e.GetType() == typeof(SpreadsheetException);
-        private static bool NoMatchesFound(Exception e) => "No matches found".Equals(e.Message) && e.GetType() == typeof(SpreadsheetException);
-        private bool InvalidExpression(Exception e) => e.GetType() == typeof(ExpressionParseException);
-        private bool CircularReference(Exception e) => e.Message.StartsWith("Circular Reference") && e.GetType() == typeof(SpreadsheetException);
+    }
+    public interface IErrorValidator
+    {
+        bool Validate(Exception e);
+        string ErrorMessage(Exception e, string formulaName);
+    }
+    public class ObjectReferenceNotSetErrorValidator : IErrorValidator
+    {
+        public string ErrorMessage(Exception e, string formulaName)
+            => "Missing Lookup Table";
 
-        private string parseNoMatchException(SpreadsheetException e, string formulaName)
-        {
-            return $"No match found for token [{e.Token}] related to formula '{formulaName}'.";
-        }
+        public bool Validate(Exception e)
+            => e.Message.Equals("Object reference not set to an instance of an object") && e.StackTrace.Contains("VLookup");
+    }
+    public class MissingFormulaErrorValidator : IErrorValidator
+    {
+        public string ErrorMessage(Exception e, string formulaName)
+            => $"Invalid expression found in tax formula [{formulaName}]. Check for merged cells near {((SpreadsheetException)e).Cells}";
 
-        private string parseCircularReferenceException(SpreadsheetException e, string formulaName)
-        {
-            return $"Circular Reference in spreadsheet related to formula '{formulaName}'. Cells: {e.Cells}";
-        }
+        public bool Validate(Exception e)
+            => e.Message.Equals("Missing Formula") && e.GetType() == typeof(SpreadsheetException);
+    }
+    public class NoMatchesFoundErrorValidator : IErrorValidator
+    {
+        public string ErrorMessage(Exception e, string formulaName)
+            => $"No match found for token [{((SpreadsheetException)e).Token}] related to formula '{formulaName}'.";
 
-        private string parseMissingFormula(SpreadsheetException e, string formulaName)
-        {
-            return $"Invalid expression found in tax formula [{formulaName}]. Check for merged cells near {e.Cells}";
-        }
+        public bool Validate(Exception e)
+            => e.Message.Equals("No matches found") && e.GetType() == typeof(SpreadsheetException);
+    }
+    public class InvalidExpressionErrorValidator : IErrorValidator
+    {
+        public string ErrorMessage(Exception e, string formulaName)
+            => $"Invalid expression found in tax formula [{formulaName}]. Check that separators and delimiters use the English locale.";
+
+        public bool Validate(Exception e)
+            => e.GetType() == typeof(ExpressionParseException);
+    }
+    public class CircularReferenceErrorValidator : IErrorValidator
+    {
+        public string ErrorMessage(Exception e, string formulaName)
+            => $"Circular Reference in spreadsheet related to formula '{formulaName}'. Cells: {((SpreadsheetException)e).Cells}";
+
+        public bool Validate(Exception e)
+            => e.Message.StartsWith("Circular Reference") && e.GetType() == typeof(SpreadsheetException);
     }
 }
